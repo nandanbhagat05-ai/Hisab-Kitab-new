@@ -1,0 +1,6 @@
+{
+  "name": "AtharvNandan",
+  "description": "Daily Hisab-Kitab, customer credit/debit ledger, cashbook calculator, PDF reports, and WhatsApp payment reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

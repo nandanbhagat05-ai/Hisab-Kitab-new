@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">AtharvNandan</string>
+    <string name="tagline_hisab">Smart Daily Hisab-Kitab &amp; Cashbook</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_in_subtitle">Sync your customer ledger, daily cashbook, and reports securely to your Google account.</string>
+    <string name="tab_khata">Khata</string>
+    <string name="tab_cashbook">Cashbook</string>
+    <string name="tab_reports">Reports</string>
+    <string name="add_customer">Add Customer</string>
+    <string name="you_will_get">You will get (Lena)</string>
+    <string name="you_will_give">You will give (Dena)</string>
+    <string name="all_settled">All Settled</string>
+    <string name="you_gave">You Gave ₹</string>
+    <string name="you_got">You Got ₹</string>
+    <string name="cash_in">+ Cash In</string>
+    <string name="cash_out">- Cash Out</string>
+    <string name="cash_calculator">Cash Tally Calculator</string>
+    <string name="share_pdf_report">Share PDF Report</string>
+    <string name="whatsapp_reminder">WhatsApp Reminder</string>
+    <string name="business_profile">Business Profile</string>
+    <string name="sign_out">Sign Out</string>
+</resources>

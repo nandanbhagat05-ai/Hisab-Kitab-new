@@ -1,0 +1,181 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Shopkeeper business profile and settings for KhataBook reports and reminders.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID of the shopkeeper."
+        },
+        "businessName": {
+          "type": "string",
+          "description": "Display name of the shop or business."
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Optional owner name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional business contact phone number."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "businessName", "createdAt", "updatedAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "A customer account in the shopkeeper's Khata ledger.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner UID."
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer full name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional customer phone number for WhatsApp reminders."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or address."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "name", "createdAt", "updatedAt"]
+    },
+    "LedgerEntry": {
+      "title": "LedgerEntry",
+      "description": "A credit (GAVE / Udhar) or payment (GOT / Jama) transaction for a customer.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner UID."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Document ID of the parent customer."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["GAVE", "GOT"],
+          "description": "GAVE (Udhar Diya / customer owes) or GOT (Jama Mila / payment received)."
+        },
+        "amountPaise": {
+          "type": "integer",
+          "description": "Positive transaction amount in paise (1 INR = 100 paise)."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional item description or payment note."
+        },
+        "entryDateMillis": {
+          "type": "integer",
+          "description": "Transaction date in epoch milliseconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "customerId", "type", "amountPaise", "entryDateMillis", "createdAt", "updatedAt"]
+    },
+    "CashEntry": {
+      "title": "CashEntry",
+      "description": "A daily cashbook (Galla) Cash In or Cash Out transaction.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner UID."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["IN", "OUT"],
+          "description": "IN (Cash In / Jama) or OUT (Cash Out / Kharch)."
+        },
+        "amountPaise": {
+          "type": "integer",
+          "description": "Positive transaction amount in paise."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category label such as Sales, Supplier, Rent, or Cash Tally."
+        },
+        "paymentMode": {
+          "type": "string",
+          "enum": ["CASH", "ONLINE"],
+          "description": "Payment mode: CASH or ONLINE."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional details for the cash entry."
+        },
+        "entryDateMillis": {
+          "type": "integer",
+          "description": "Entry date in epoch milliseconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "type", "amountPaise", "category", "paymentMode", "entryDateMillis", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User business profile document."
+    },
+    "/users/{userId}/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "User-scoped customer accounts."
+    },
+    "/users/{userId}/ledgerEntries/{entryId}": {
+      "schema": { "$ref": "#/entities/LedgerEntry" },
+      "description": "User-scoped customer credit/debit ledger entries."
+    },
+    "/users/{userId}/cashEntries/{cashEntryId}": {
+      "schema": { "$ref": "#/entities/CashEntry" },
+      "description": "User-scoped daily cashbook entries."
+    }
+  }
+}

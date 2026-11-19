@@ -1,0 +1,163 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Deny all access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 60 &&
+             (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 60)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 20)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCustomer(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 20)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 150)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidLedgerEntry(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             isValidId(data.customerId) &&
+             data.type in ['GAVE', 'GOT'] &&
+             data.amountPaise is int && data.amountPaise > 0 && data.amountPaise <= 100000000000 &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 200)) &&
+             data.entryDateMillis is int && data.entryDateMillis > 0 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCashEntry(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.type in ['IN', 'OUT'] &&
+             data.amountPaise is int && data.amountPaise > 0 && data.amountPaise <= 100000000000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 40 &&
+             data.paymentMode in ['CASH', 'ONLINE'] &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 200)) &&
+             data.entryDateMillis is int && data.entryDateMillis > 0 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'businessName', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'businessName', 'ownerName', 'phone', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'ownerName', 'phone', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /customers/{customerId} {
+        allow get: if isOwner(userId) && isValidId(customerId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(customerId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'phone', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidCustomer(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(customerId) &&
+                         isValidCustomer(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(customerId);
+      }
+
+      match /ledgerEntries/{entryId} {
+        allow get: if isOwner(userId) && isValidId(entryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         incoming().keys().hasAll(['userId', 'customerId', 'type', 'amountPaise', 'entryDateMillis', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'customerId', 'type', 'amountPaise', 'note', 'entryDateMillis', 'createdAt', 'updatedAt']) &&
+                         isValidLedgerEntry(incoming(), userId) &&
+                         exists(/databases/$(database)/documents/users/$(userId)/customers/$(incoming().customerId));
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         isValidLedgerEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().customerId == existing().customerId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['type', 'amountPaise', 'note', 'entryDateMillis', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(entryId);
+      }
+
+      match /cashEntries/{cashEntryId} {
+        allow get: if isOwner(userId) && isValidId(cashEntryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(cashEntryId) &&
+                         incoming().keys().hasAll(['userId', 'type', 'amountPaise', 'category', 'paymentMode', 'entryDateMillis', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'type', 'amountPaise', 'category', 'paymentMode', 'note', 'entryDateMillis', 'createdAt', 'updatedAt']) &&
+                         isValidCashEntry(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(cashEntryId) &&
+                         isValidCashEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['type', 'amountPaise', 'category', 'paymentMode', 'note', 'entryDateMillis', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(cashEntryId);
+      }
+    }
+  }
+}
