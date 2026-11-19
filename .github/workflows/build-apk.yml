@@ -26,10 +26,12 @@ jobs:
           SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
-          SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
-          if [ -x "$SDKMANAGER" ]; then
-            yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          fi
+          for tool in "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR"/cmdline-tools/*/bin/sdkmanager; do
+            if [ -x "$tool" ]; then
+              yes | "$tool" --licenses >/dev/null 2>&1 || true
+              break
+            fi
+          done
 
       - name: Install Gradle 9.3.1
         run: |
@@ -37,10 +39,21 @@ jobs:
           unzip -q /tmp/gradle-9.3.1-bin.zip -d "$HOME/gradle"
           echo "$HOME/gradle/gradle-9.3.1/bin" >> "$GITHUB_PATH"
 
-      - name: Decode debug keystore
+      - name: Prepare debug keystore for CI
         run: |
           if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
             base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Build Debug APK
