@@ -2,6 +2,7 @@ package com.example.ui.auth
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -116,6 +117,12 @@ fun attemptAutoSignIn(
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 fun onGoogleSignInClicked(
     context: Context,
     credentialManager: CredentialManager,
@@ -130,7 +137,7 @@ fun onGoogleSignInClicked(
         onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
         return
     }
-    val activity = context as? Activity
+    val activity = context.findActivity()
     if (activity == null) {
         onAuthError("Unable to launch sign-in from non-activity context.")
         return
