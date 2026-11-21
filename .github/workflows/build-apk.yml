@@ -15,17 +15,77 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Restore google-services.json from secret if needed
+      - name: Restore and validate google-services.json from secret
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ ! -f app/google-services.json ] && [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
-          fi
-          if [ ! -f app/google-services.json ]; then
-            echo "::error::Missing app/google-services.json! Add repository secret GOOGLE_SERVICES_JSON (download google-services.json from Firebase Console or copy app/google-services.json)."
-            exit 1
-          fi
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+
+          target = "app/google-services.json"
+          if os.path.exists(target):
+              raw = open(target, "r", encoding="utf-8-sig").read()
+          else:
+              raw = os.environ.get("GOOGLE_SERVICES_JSON", "")
+
+          if not raw.strip():
+              print("::error::Missing app/google-services.json! Add repository secret GOOGLE_SERVICES_JSON.")
+              sys.exit(1)
+
+          def try_parse(text):
+              cleaned = (
+                  text.lstrip("\ufeff")
+                  .strip()
+                  .replace("\u201c", '"')
+                  .replace("\u201d", '"')
+                  .replace("\u2018", "'")
+                  .replace("\u2019", "'")
+              )
+              try:
+                  obj = json.loads(cleaned)
+                  if isinstance(obj, dict) and "project_info" in obj and "client" in obj:
+                      return obj
+              except Exception:
+                  pass
+              # Try extracting outermost JSON object if extra text was copied around it
+              start = cleaned.find("{")
+              end = cleaned.rfind("}")
+              if start != -1 and end > start:
+                  try:
+                      obj = json.loads(cleaned[start : end + 1])
+                      if isinstance(obj, dict) and "project_info" in obj and "client" in obj:
+                          return obj
+                  except Exception:
+                      pass
+              return None
+
+          parsed = try_parse(raw)
+          if parsed is None:
+              # Try base64-encoded JSON
+              try:
+                  decoded = base64.b64decode(raw.strip(), validate=False).decode("utf-8", errors="ignore")
+                  parsed = try_parse(decoded)
+              except Exception:
+                  parsed = None
+
+          if parsed is None:
+              length = len(raw.strip())
+              starts_with_brace = raw.strip().startswith("{")
+              ends_with_brace = raw.strip().endswith("}")
+              print(
+                  f"::error::GOOGLE_SERVICES_JSON secret is not valid google-services.json "
+                  f"(length={length}, starts_with_brace={starts_with_brace}, ends_with_brace={ends_with_brace}). "
+                  f"Re-download google-services.json from Firebase Console, copy the ENTIRE file from {{ to }}, and update the GOOGLE_SERVICES_JSON secret."
+              )
+              sys.exit(1)
+
+          with open(target, "w", encoding="utf-8") as f:
+              json.dump(parsed, f, indent=2)
+          print("Validated app/google-services.json successfully.")
+          PY
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
